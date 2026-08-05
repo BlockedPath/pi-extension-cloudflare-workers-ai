@@ -18,8 +18,10 @@ The API token must have permission to run Workers AI models for the account.
 ## Install
 
 ```bash
-pi install pi-extension-cloudflare-workers-ai
+pi install npm:pi-extension-cloudflare-workers-ai
 ```
+
+The `npm:` scheme is required; a bare name is interpreted as a local directory path.
 
 ## Install locally
 

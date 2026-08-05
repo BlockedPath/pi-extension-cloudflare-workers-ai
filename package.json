@@ -1,0 +1,42 @@
+{
+  "name": "pi-extension-cloudflare-workers-ai",
+  "version": "0.1.0",
+  "description": "Cloudflare Workers AI model provider for pi",
+  "license": "MIT",
+  "author": "justin <justinjbarlow92@gmail.com>",
+  "homepage": "https://github.com/BlockedPath/pi-extension-cloudflare-workers-ai#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BlockedPath/pi-extension-cloudflare-workers-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/BlockedPath/pi-extension-cloudflare-workers-ai/issues"
+  },
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "cloudflare",
+    "workers-ai",
+    "llm"
+  ],
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "check": "pi --no-extensions -e ./src/index.ts --list-models cloudflare-workers-ai"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  }
+}

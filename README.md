@@ -15,6 +15,12 @@ export CLOUDFLARE_API_KEY="your-api-token"
 
 The API token must have permission to run Workers AI models for the account.
 
+## Install
+
+```bash
+pi install pi-extension-cloudflare-workers-ai
+```
+
 ## Install locally
 
 ```bash

@@ -23,6 +23,21 @@ const KIMI_K3_THINKING_LEVEL_MAP = {
 	max: "max",
 } as const;
 
+// Workers AI only accepts `xhigh` (its default), `medium`, and `low` as the
+// reasoning effort for qwen3.8-27b. pi sends its own level verbatim when a map
+// entry is missing, so the default `high` comes back as a bare
+// `400 status code (no body)`. Fold pi's seven levels onto the three accepted
+// values; `off` is null because the endpoint cannot disable reasoning at all.
+const QWEN_3_8_THINKING_LEVEL_MAP = {
+	off: null,
+	minimal: "low",
+	low: "low",
+	medium: "medium",
+	high: "xhigh",
+	xhigh: "xhigh",
+	max: "xhigh",
+} as const;
+
 const KIMI_K3_COMPAT = {
 	...COMPAT,
 	requiresReasoningContentOnAssistantMessages: true,
@@ -30,6 +45,26 @@ const KIMI_K3_COMPAT = {
 } as const;
 
 export const MODELS: ProviderModelConfig[] = [
+	{
+		id: "@cf/deepseek-ai/deepseek-v4-flash-0731",
+		name: "DeepSeek V4 Flash 0731",
+		reasoning: true,
+		input: ["text"],
+		cost: { input: 0.44, output: 1.32, cacheRead: 0.014, cacheWrite: 0 },
+		contextWindow: 1_048_576,
+		maxTokens: 384_000,
+		compat: COMPAT,
+	},
+	{
+		id: "@cf/deepseek-ai/deepseek-v4-pro-0813",
+		name: "DeepSeek V4 Pro 0813",
+		reasoning: true,
+		input: ["text", "image"],
+		cost: { input: 1.32, output: 3.96, cacheRead: 0.044, cacheWrite: 0 },
+		contextWindow: 1_048_576,
+		maxTokens: 384_000,
+		compat: COMPAT,
+	},
 	{
 		id: "@cf/google/gemma-4-26b-a4b-it",
 		name: "Gemma 4 26B A4B IT",
@@ -138,6 +173,17 @@ export const MODELS: ProviderModelConfig[] = [
 		cost: { input: 0.0509, output: 0.335, cacheRead: 0, cacheWrite: 0 },
 		contextWindow: 32_768,
 		maxTokens: 32_768,
+		compat: COMPAT,
+	},
+	{
+		id: "@cf/qwen/qwen3.8-27b",
+		name: "Qwen3.8 27B",
+		reasoning: true,
+		thinkingLevelMap: QWEN_3_8_THINKING_LEVEL_MAP,
+		input: ["text", "image"],
+		cost: { input: 0.45, output: 3.2, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 262_144,
+		maxTokens: 262_144,
 		compat: COMPAT,
 	},
 	{

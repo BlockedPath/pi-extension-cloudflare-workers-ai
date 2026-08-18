@@ -1,6 +1,6 @@
 {
   "name": "pi-extension-cloudflare-workers-ai",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Cloudflare Workers AI model provider for pi",
   "license": "MIT",
   "author": "justin <justinjbarlow92@gmail.com>",

@@ -2,7 +2,7 @@
 
 A [pi package](https://pi.dev) that registers Cloudflare Workers AI as the `cloudflare-workers-ai` model provider.
 
-The extension uses Cloudflare's OpenAI-compatible Chat Completions endpoint and includes the Workers AI model catalog with reasoning, image-input, context-window, output-limit, pricing, and compatibility metadata.
+The extension uses Cloudflare's OpenAI-compatible Chat Completions endpoint and includes the Workers AI model catalog with reasoning, image-input, context-window, output-limit, pricing, and compatibility metadata. It also discovers new tool-capable text-generation models from Cloudflare's catalog API.
 
 ## Requirements
 
@@ -45,9 +45,25 @@ For example:
 
 ```bash
 pi --provider cloudflare-workers-ai \
-  --model '@cf/ibm-granite/granite-4.0-h-micro' \
+  --model '@cf/zai-org/glm-5.3-flash' \
   'Say hello'
 ```
+
+The bundled catalog includes `@cf/zai-org/glm-5.3-flash` (text and image input) and `@cf/zai-org/glm-5.3` (text input). Both require Workers Paid billing or prepaid AI Gateway credits.
+
+Select these models under the `cloudflare-workers-ai` provider. A model ID beginning with `workers-ai/` belongs to pi's separate `cloudflare-ai-gateway` provider, not this extension.
+
+## Model updates
+
+The provider participates in pi's model-catalog refresh system. Discovered models and their capabilities, context windows, and token pricing are cached in `~/.pi/agent/models-store.json` for offline startup. The cache is refreshed from Cloudflare after four hours; the bundled catalog remains available if discovery cannot run.
+
+Force an immediate catalog refresh with:
+
+```bash
+pi update --models
+```
+
+Only Cloudflare text-generation models that advertise function calling are added, so every automatically discovered entry is suitable for pi's agent tools.
 
 ## Development check
 

@@ -3,7 +3,7 @@
 
 import type { ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 
-const COMPAT = {
+export const COMPAT = {
 	supportsStore: false,
 	supportsDeveloperRole: false,
 	supportsLongCacheRetention: false,
@@ -36,6 +36,18 @@ const QWEN_3_8_THINKING_LEVEL_MAP = {
 	high: "xhigh",
 	xhigh: "xhigh",
 	max: "xhigh",
+} as const;
+
+// Workers AI documents low, medium, and high reasoning effort for GLM 5.3.
+// Hide pi's unsupported levels instead of sending values Cloudflare rejects.
+const GLM_5_3_THINKING_LEVEL_MAP = {
+	off: null,
+	minimal: null,
+	low: "low",
+	medium: "medium",
+	high: "high",
+	xhigh: null,
+	max: null,
 } as const;
 
 const KIMI_K3_COMPAT = {
@@ -204,6 +216,28 @@ export const MODELS: ProviderModelConfig[] = [
 		cost: { input: 1.4, output: 4.4, cacheRead: 0.26, cacheWrite: 0 },
 		contextWindow: 262_144,
 		maxTokens: 262_144,
+		compat: COMPAT,
+	},
+	{
+		id: "@cf/zai-org/glm-5.3-flash",
+		name: "GLM-5.3-Flash",
+		reasoning: true,
+		thinkingLevelMap: GLM_5_3_THINKING_LEVEL_MAP,
+		input: ["text", "image"],
+		cost: { input: 0.15, output: 0.5, cacheRead: 0.03, cacheWrite: 0 },
+		contextWindow: 1_048_576,
+		maxTokens: 131_072,
+		compat: COMPAT,
+	},
+	{
+		id: "@cf/zai-org/glm-5.3",
+		name: "GLM-5.3",
+		reasoning: true,
+		thinkingLevelMap: GLM_5_3_THINKING_LEVEL_MAP,
+		input: ["text"],
+		cost: { input: 1.4, output: 4.4, cacheRead: 0.26, cacheWrite: 0 },
+		contextWindow: 1_048_576,
+		maxTokens: 131_072,
 		compat: COMPAT,
 	},
 	{

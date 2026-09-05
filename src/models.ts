@@ -38,16 +38,32 @@ const QWEN_3_8_THINKING_LEVEL_MAP = {
 	max: "xhigh",
 } as const;
 
-// Workers AI documents low, medium, and high reasoning effort for GLM 5.3.
-// Hide pi's unsupported levels instead of sending values Cloudflare rejects.
-const GLM_5_3_THINKING_LEVEL_MAP = {
-	off: null,
-	minimal: null,
+// Newer sglang-backed Workers AI models take pi's full seven-level ladder
+// verbatim; only `off` needs translating to the endpoint's `none`. Verified by
+// probing each level (accepted) plus a bogus level (rejected with HTTP 400).
+const FULL_EFFORT_THINKING_LEVEL_MAP = {
+	off: "none",
+	minimal: "minimal",
 	low: "low",
 	medium: "medium",
 	high: "high",
-	xhigh: null,
-	max: null,
+	xhigh: "xhigh",
+	max: "max",
+} as const;
+
+// @cf/zai-org/glm-5.3 (unlike glm-5.3-flash) really does reject `minimal` and
+// `xhigh` with HTTP 400, so fold pi's seven levels onto its five accepted
+// values. Do not trust the 400 body's literal list on other models: DeepSeek V4
+// Pro prints this same five-value list yet accepts `minimal` and `xhigh`, which
+// produce distinct reasoning lengths — always probe each level directly.
+const GLM_5_3_THINKING_LEVEL_MAP = {
+	off: "none",
+	minimal: "low",
+	low: "low",
+	medium: "medium",
+	high: "high",
+	xhigh: "max",
+	max: "max",
 } as const;
 
 const KIMI_K3_COMPAT = {
@@ -61,20 +77,24 @@ export const MODELS: ProviderModelConfig[] = [
 		id: "@cf/deepseek-ai/deepseek-v4-flash-0731",
 		name: "DeepSeek V4 Flash 0731",
 		reasoning: true,
+		thinkingLevelMap: FULL_EFFORT_THINKING_LEVEL_MAP,
 		input: ["text"],
 		cost: { input: 0.44, output: 1.32, cacheRead: 0.014, cacheWrite: 0 },
+		// Verified: input + max_completion_tokens must stay under 1048576, so the
+		// output cap has to leave real room for the prompt.
 		contextWindow: 1_048_576,
-		maxTokens: 384_000,
+		maxTokens: 131_072,
 		compat: COMPAT,
 	},
 	{
 		id: "@cf/deepseek-ai/deepseek-v4-pro-0813",
 		name: "DeepSeek V4 Pro 0813",
 		reasoning: true,
+		thinkingLevelMap: FULL_EFFORT_THINKING_LEVEL_MAP,
 		input: ["text", "image"],
 		cost: { input: 1.32, output: 3.96, cacheRead: 0.044, cacheWrite: 0 },
 		contextWindow: 1_048_576,
-		maxTokens: 384_000,
+		maxTokens: 131_072,
 		compat: COMPAT,
 	},
 	{
@@ -222,9 +242,11 @@ export const MODELS: ProviderModelConfig[] = [
 		id: "@cf/zai-org/glm-5.3-flash",
 		name: "GLM-5.3-Flash",
 		reasoning: true,
-		thinkingLevelMap: GLM_5_3_THINKING_LEVEL_MAP,
+		// Flash accepts all seven levels; the non-flash glm-5.3 does not.
+		thinkingLevelMap: FULL_EFFORT_THINKING_LEVEL_MAP,
 		input: ["text", "image"],
 		cost: { input: 0.15, output: 0.5, cacheRead: 0.03, cacheWrite: 0 },
+		// Verified: total (input + max_completion_tokens) must stay under 1048576.
 		contextWindow: 1_048_576,
 		maxTokens: 131_072,
 		compat: COMPAT,

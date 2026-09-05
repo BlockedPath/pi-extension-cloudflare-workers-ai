@@ -15,6 +15,8 @@ const MAX_PAGES = 10;
 const PINNED_METADATA_MODEL_IDS = new Set([
 	"@cf/zai-org/glm-5.3",
 	"@cf/zai-org/glm-5.3-flash",
+	"@cf/deepseek-ai/deepseek-v4-flash-0731",
+	"@cf/deepseek-ai/deepseek-v4-pro-0813",
 ]);
 
 interface CloudflareProperty {
@@ -174,9 +176,7 @@ export function mapCloudflareCatalog(
 				: (existing?.reasoning ?? false),
 			input,
 			cost: modelCost(properties.get("price"), existing),
-			contextWindow: pinBundledMetadata
-				? existing.contextWindow
-				: contextWindow,
+			contextWindow: pinBundledMetadata ? existing.contextWindow : contextWindow,
 			maxTokens: pinBundledMetadata ? existing.maxTokens : maxTokens,
 			compat: existing?.compat ?? COMPAT,
 		});
@@ -270,9 +270,7 @@ export function restoreStoredCatalog(
 				contextWindow: pinBundledMetadata
 					? bundled.contextWindow
 					: model.contextWindow,
-				maxTokens: pinBundledMetadata
-					? bundled.maxTokens
-					: model.maxTokens,
+				maxTokens: pinBundledMetadata ? bundled.maxTokens : model.maxTokens,
 				headers: model.headers,
 				compat: model.compat,
 			};

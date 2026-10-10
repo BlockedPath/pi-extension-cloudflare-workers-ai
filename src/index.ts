@@ -11,6 +11,7 @@ import {
 	fetchCloudflareModelCatalog,
 	isCatalogFresh,
 	PROVIDER_ID,
+	refreshModelBaseUrl,
 	restoreStoredCatalog,
 	storedCatalogModels,
 } from "./model-refresh.ts";
@@ -59,7 +60,7 @@ export default function (pi: ExtensionAPI) {
 			});
 			const refreshed = catalog.map((model) => ({
 				...model,
-				baseUrl: modelBaseUrl,
+				baseUrl: refreshModelBaseUrl(model, modelBaseUrl),
 			}));
 
 			const published = await context.publish({
@@ -72,14 +73,19 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 
-	if (!ACCOUNT_ID) {
-		pi.on("session_start", (_event, ctx) => {
-			if (ctx.hasUI) {
-				ctx.ui.notify(
-					"cloudflare-workers-ai: CLOUDFLARE_ACCOUNT_ID not set — set it (and CLOUDFLARE_API_KEY) and restart pi",
-					"warning",
-				);
-			}
-		});
-	}
+	// Warn only when auth is genuinely unavailable. ACCOUNT_ID reflects
+	// process env at load time, but a stored credential (/login) covers auth
+	// without any env vars — warning on env alone is a false positive.
+	pi.on("session_start", async (_event, ctx) => {
+		if (!ctx.hasUI || ACCOUNT_ID) return;
+		const auth = await ctx.modelRegistry
+			.getProviderAuth(PROVIDER_ID)
+			.catch(() => undefined);
+		if (!auth) {
+			ctx.ui.notify(
+				"cloudflare-workers-ai: no Cloudflare credentials — set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_KEY, or run /login for cloudflare-workers-ai, then restart pi",
+				"warning",
+			);
+		}
+	});
 }

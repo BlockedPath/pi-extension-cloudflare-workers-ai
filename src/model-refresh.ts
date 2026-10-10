@@ -183,9 +183,16 @@ export function mapCloudflareCatalog(
 	}
 
 	// Cloudflare occasionally exposes preview aliases outside the public @cf
-	// catalog (for example, moonshotai/kimi-k3). Keep those curated entries.
+	// catalog (for example, moonshotai/kimi-k3), and the Text Generation
+	// catalog never lists classifier models (@cf/cloudflare/clef,
+	// clef-flash, typesafe/jev). Keep those curated entries so a refresh
+	// does not purge non-chat model types.
 	for (const model of baseline) {
-		if (!model.id.startsWith("@cf/")) discovered.set(model.id, model);
+		if (
+			!model.id.startsWith("@cf/") ||
+			(model.type && model.type !== "chat")
+		)
+			discovered.set(model.id, model);
 	}
 
 	return [...discovered.values()].sort((left, right) =>
@@ -261,6 +268,11 @@ export function restoreStoredCatalog(
 				name: model.name,
 				api: model.api,
 				baseUrl: model.baseUrl,
+				// Preserve non-chat model types (classifier/image) so stored
+				// System One classifier models keep their type instead of
+				// defaulting to chat and failing streaming with an unregistered
+				// api error.
+				type: model.type,
 				reasoning: model.reasoning,
 				thinkingLevelMap: pinBundledMetadata
 					? bundled.thinkingLevelMap
@@ -285,6 +297,18 @@ export function restoreStoredCatalog(
 	return [...merged.values()].sort((left, right) =>
 		left.id.localeCompare(right.id),
 	);
+}
+
+// Base URL for a refreshed catalog entry. Chat models live under /ai/v1,
+// but non-chat models keep their own baseUrl: System One classifiers are
+// served from /ai/run, and rewriting them to /ai/v1 breaks classification
+// with Cloudflare 400/7000 ("No route for that URI").
+export function refreshModelBaseUrl(
+	model: ProviderModelConfig,
+	modelBaseUrl: string,
+): string {
+	if (model.type && model.type !== "chat") return model.baseUrl ?? modelBaseUrl;
+	return modelBaseUrl;
 }
 
 export function storedCatalogModels(

@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 import {
 	CATALOG_MAX_AGE_MS,
 	fetchCloudflareModelCatalog,
 	isCatalogFresh,
 	mapCloudflareCatalog,
+	refreshModelBaseUrl,
 	restoreStoredCatalog,
 } from "../src/model-refresh.ts";
 import { MODELS } from "../src/models.ts";
@@ -211,4 +213,48 @@ test("restores only this provider's cached models and applies freshness TTL", ()
 	);
 	assert.equal(isCatalogFresh(1_000, 1_000 + CATALOG_MAX_AGE_MS - 1), true);
 	assert.equal(isCatalogFresh(1_000, 1_000 + CATALOG_MAX_AGE_MS), false);
+});
+
+const clefClassifier: ProviderModelConfig = {
+	id: "@cf/cloudflare/clef",
+	name: "Clef",
+	type: "classifier",
+	api: "cloudflare-workers-ai-system-one",
+	baseUrl:
+		"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai",
+	input: ["text"],
+	cost: { input: 0.24, output: 0, cacheRead: 0, cacheWrite: 0 },
+	contextWindow: 65536,
+};
+
+test("restoreStoredCatalog preserves classifier model types", () => {
+	const stored = { ...clefClassifier, provider: "cloudflare-workers-ai" };
+	const restored = restoreStoredCatalog([stored], MODELS).find(
+		(model) => model.id === clefClassifier.id,
+	);
+	assert.ok(restored);
+	assert.equal(restored.type, "classifier");
+	assert.equal(restored.api, "cloudflare-workers-ai-system-one");
+	assert.equal(restored.baseUrl, clefClassifier.baseUrl);
+});
+
+test("mapCloudflareCatalog keeps baseline classifiers missing from the remote catalog", () => {
+	const models = mapCloudflareCatalog([], [...MODELS, clefClassifier]);
+	const clef = models.find((model) => model.id === clefClassifier.id);
+	assert.ok(clef);
+	assert.equal(clef.type, "classifier");
+	assert.equal(clef.baseUrl, clefClassifier.baseUrl);
+});
+
+test("refreshModelBaseUrl keeps the System One endpoint for classifiers", () => {
+	const chatBaseUrl =
+		"https://api.cloudflare.com/client/v4/accounts/example/ai/v1";
+	assert.equal(
+		refreshModelBaseUrl({ ...MODELS[0] }, chatBaseUrl),
+		chatBaseUrl,
+	);
+	assert.equal(
+		refreshModelBaseUrl(clefClassifier, chatBaseUrl),
+		clefClassifier.baseUrl,
+	);
 });

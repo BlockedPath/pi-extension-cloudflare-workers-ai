@@ -1,6 +1,6 @@
 # Cloudflare Workers AI provider for pi
 
-A [pi package](https://pi.dev) that registers Cloudflare Workers AI as the `cloudflare-workers-ai` model provider.
+A [pi package](https://pi.dev) that registers Cloudflare Workers AI as the `cloudflare-workers-ai` model provider. It also ships [clef-gate](#clef-permission-gate), a permission gate that uses Cloudflare's Clef classifier to judge risky tool calls before they run.
 
 The extension uses Cloudflare's OpenAI-compatible Chat Completions endpoint and includes the Workers AI model catalog with reasoning, image-input, context-window, output-limit, pricing, and compatibility metadata. It also discovers new tool-capable text-generation models from Cloudflare's catalog API.
 
@@ -52,6 +52,66 @@ pi --provider cloudflare-workers-ai \
 The bundled catalog includes `@cf/zai-org/glm-5.3-flash` (text and image input) and `@cf/zai-org/glm-5.3` (text input). Both require Workers Paid billing or prepaid AI Gateway credits.
 
 Select these models under the `cloudflare-workers-ai` provider. A model ID beginning with `workers-ai/` belongs to pi's separate `cloudflare-ai-gateway` provider, not this extension.
+
+## Clef permission gate
+
+The package includes a second extension, `src/clef-gate.ts`, which pi loads alongside the provider. It intercepts `bash`, `powershell`, `edit`, and `write` tool calls and asks the Clef classifier (`@cf/cloudflare/clef`) whether each call is safe to run without asking you first. Read-only tools pass through untouched.
+
+How a gated call is decided:
+
+1. **Deterministic denylist** — patterns that are almost never safe to auto-run (recursive force delete, `git reset --hard`, `curl | bash`, raw device writes, …) and sensitive paths (`~/.ssh`, `/etc`, `~/.pi/agent/auth.json`, private keys, …) skip Clef and go straight to asking you.
+2. **Clef verdict** — anything else is classified. At `P(safe) ≥ 0.8` (configurable) the call runs silently.
+3. **Ask** — if Clef is unsure or unreachable, you decide. With no UI available the call is blocked (fail-safe). Approvals and Clef verdicts are cached for 10 minutes, so retries of the exact same call don't re-ask.
+
+### The ask dialog
+
+The dialog isn't just Yes/No — it also lets you stop being asked about the same thing:
+
+```text
+Clef gate: allow bash?
+Matches dangerous pattern: recursive force delete
+$ cat > /tmp/test.sh <<'EOF' …
+
+→ Yes — allow once
+  Yes — auto-approve "recursive force delete" for this session
+  Yes — auto-approve everything for this session
+  No — block
+```
+
+Auto-approve choices are session-only — every new session starts back at asking. On Clef-unsure asks, the scoped option reads "auto-approve *tool* calls Clef doesn't auto-allow" instead.
+
+### Commands
+
+`/clef-gate` (alias `/clef`) controls the gate. Type `/clef ` and pick from the argument dropdown — `/clef auto ` descends into a pattern picker and `/clef auto-tool ` into a tool picker.
+
+| Command | Effect |
+| --- | --- |
+| `/clef` or `/clef status` | Mode, Clef availability, threshold, active auto-approve scopes, recent gated calls |
+| `/clef on` (or `ask`) | Ask when unsure; cancels auto-approve-everything (pattern scopes kept) |
+| `/clef off` | Gate off for this session — calls run unjudged and unlogged |
+| `/clef auto` | Auto-approve anything that would ask (still judged and recorded) |
+| `/clef auto <pattern>` | Auto-approve one denylist/path label, e.g. `/clef auto recursive force delete` |
+| `/clef auto-tool bash\|powershell\|edit\|write` | Auto-approve asks for one tool |
+| `/clef clear-auto` | Remove all auto-approve; back to asking |
+
+### Configuration
+
+Environment variables, read when the extension loads:
+
+| Variable | Effect |
+| --- | --- |
+| `CLEF_GATE_MODEL` | Classifier model id (default `@cf/cloudflare/clef`) |
+| `CLEF_GATE_THRESHOLD` | `P(safe)` at/above which calls auto-run (default `0.8`) |
+| `CLEF_GATE_MODE` | `ask` (default), `auto`, or `off` — wins over the two below |
+| `CLEF_GATE_ENABLED=0` | Start with the gate off |
+| `CLEF_GATE_AUTO_APPROVE=1` | Start in auto-approve-everything mode (also allows headless runs) |
+| `CLEF_GATE_AUTO_PATTERNS` | Comma-separated pattern labels to auto-approve, e.g. `"recursive force delete,git reset --hard (discards changes)"` |
+| `CLEF_GATE_AUTO_TOOLS` | Comma-separated tools whose asks auto-approve, e.g. `"bash,edit"` |
+| `CLEF_GATE_DRY_RUN=1` | Log verdicts, never block or ask |
+
+Don't want the gate at all? Set `CLEF_GATE_ENABLED=0` before starting pi, or run `/clef off` per session.
+
+> If you previously installed `clef-gate.ts` manually in `~/.pi/agent/extensions/`, remove that copy after updating this package — otherwise the gate loads twice and every ask prompts twice.
 
 ## Model updates
 

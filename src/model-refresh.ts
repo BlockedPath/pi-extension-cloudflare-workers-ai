@@ -19,6 +19,18 @@ const PINNED_METADATA_MODEL_IDS = new Set([
 	"@cf/deepseek-ai/deepseek-v4-pro-0813",
 ]);
 
+// These catalog entries advertise function calling but are gated behind an
+// access-request form and cannot run on an ordinary account (verified
+// 2026-10-18: eurollm-9b-it returns 400 "model does not have config" on both
+// /ai/v1 and /ai/run; apertus-v1.5-8b returns 403 "account is not allowed").
+// Keep them out of the discovered and restored catalogs so /model does not
+// list entries that fail on every request. Remove an id here once the model
+// is generally available.
+export const EXCLUDED_CATALOG_MODEL_IDS = new Set([
+	"@cf/utter-project/eurollm-9b-it",
+	"@cf/swiss-ai/apertus-v1.5-8b",
+]);
+
 interface CloudflareProperty {
 	property_id?: unknown;
 	value?: unknown;
@@ -145,6 +157,7 @@ export function mapCloudflareCatalog(
 	for (const remote of remoteModels) {
 		if (typeof remote.name !== "string" || !remote.name.startsWith("@cf/"))
 			continue;
+		if (EXCLUDED_CATALOG_MODEL_IDS.has(remote.name)) continue;
 		if (remote.task?.name !== "Text Generation") continue;
 
 		const properties = propertiesById(remote);
@@ -258,7 +271,11 @@ export function restoreStoredCatalog(
 ): ProviderModelConfig[] {
 	const fallbackById = new Map(fallback.map((model) => [model.id, model]));
 	const restored = (models ?? [])
-		.filter((model) => !model.provider || model.provider === PROVIDER_ID)
+		.filter(
+			(model) =>
+				(!model.provider || model.provider === PROVIDER_ID) &&
+				!EXCLUDED_CATALOG_MODEL_IDS.has(model.id),
+		)
 		.map((model): ProviderModelConfig => {
 			const bundled = fallbackById.get(model.id);
 			const pinBundledMetadata =
@@ -290,8 +307,14 @@ export function restoreStoredCatalog(
 	if (restored.length === 0) return [...fallback];
 
 	const merged = new Map(restored.map((model) => [model.id, model]));
+	// Merge every bundled model the store does not know about. The store is
+	// owned by pi's built-in catalog layer, so a model added to the bundled
+	// catalog (for example @cf/daily-co/phonellm-mini-alpha-2) would otherwise
+	// stay invisible until pi's upstream catalog catches up. A model removed
+	// upstream lingers only until the bundled catalog drops it too — the same
+	// behaviour as any shipped static catalog. Gated exclusions never merge.
 	for (const model of fallback) {
-		if (!model.id.startsWith("@cf/") && !merged.has(model.id))
+		if (!merged.has(model.id) && !EXCLUDED_CATALOG_MODEL_IDS.has(model.id))
 			merged.set(model.id, model);
 	}
 	return [...merged.values()].sort((left, right) =>

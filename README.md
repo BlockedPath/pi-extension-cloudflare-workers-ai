@@ -115,7 +115,7 @@ Don't want the gate at all? Set `CLEF_GATE_ENABLED=0` before starting pi, or run
 
 ## Model updates
 
-The provider participates in pi's model-catalog refresh system. Discovered models and their capabilities, context windows, and token pricing are cached in `~/.pi/agent/models-store.json` for offline startup. The cache is refreshed from Cloudflare after four hours; the bundled catalog remains available if discovery cannot run.
+The provider participates in pi's model-catalog refresh system. Discovered models and their capabilities, context windows, and token pricing are cached in `~/.pi/agent/models-store.json` for offline startup. The cache is refreshed from Cloudflare after four hours; the bundled catalog remains available if discovery cannot run. Because that store is also written by pi's built-in catalog layer, bundled models the store does not know about yet are merged back in on restore, so a newly bundled model is visible in `/model` immediately instead of waiting for pi's upstream catalog to catch up.
 
 Force an immediate catalog refresh with:
 
@@ -124,6 +124,8 @@ pi update --models
 ```
 
 Only Cloudflare text-generation models that advertise function calling are added, so every automatically discovered entry is suitable for pi's agent tools.
+
+Two catalog entries are excluded despite advertising function calling (`EXCLUDED_CATALOG_MODEL_IDS` in `src/model-refresh.ts`): `@cf/utter-project/eurollm-9b-it` and `@cf/swiss-ai/apertus-v1.5-8b` are gated behind an access-request form — verified 2026-10-18, the first returns `400 model does not have config` and the second `403 account is not allowed` on an ordinary account. They are filtered from both discovery and the restored cache so `/model` never lists models that fail on every request; remove an id from the exclusion set once it is generally available. The bundled catalog also includes `@cf/daily-co/phonellm-mini-alpha-2` (no published per-token pricing, so its cost is recorded as 0).
 
 ## Known Cloudflare catalog quirks
 

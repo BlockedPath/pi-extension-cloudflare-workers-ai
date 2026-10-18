@@ -58,6 +58,52 @@ test("bundles the Cloudflare GLM 5.3 models", () => {
 	assert.equal(flagship.maxTokens, 131_072);
 });
 
+test("bundles PhoneLLM and excludes gated catalog models", () => {
+	const phone = MODELS.find(
+		(model) => model.id === "@cf/daily-co/phonellm-mini-alpha-2",
+	);
+	assert.ok(phone);
+	assert.equal(phone.reasoning, false);
+	assert.deepEqual(phone.input, ["text"]);
+	assert.equal(phone.contextWindow, 262_140);
+	assert.equal(phone.maxTokens, 131_072);
+
+	const discovered = mapCloudflareCatalog(
+		[
+			remoteModel("@cf/utter-project/eurollm-9b-it", {
+				function_calling: "true",
+				context_window: "32000",
+			}),
+			remoteModel("@cf/swiss-ai/apertus-v1.5-8b", {
+				function_calling: "true",
+				vision: "true",
+				context_window: "262144",
+			}),
+		],
+		MODELS,
+	);
+	assert.equal(
+		discovered.some((model) => model.id === "@cf/utter-project/eurollm-9b-it"),
+		false,
+	);
+	assert.equal(
+		discovered.some((model) => model.id === "@cf/swiss-ai/apertus-v1.5-8b"),
+		false,
+	);
+
+	const gated = {
+		...phone,
+		id: "@cf/swiss-ai/apertus-v1.5-8b",
+		provider: "cloudflare-workers-ai",
+	};
+	assert.equal(
+		restoreStoredCatalog([gated], MODELS).some(
+			(model) => model.id === gated.id,
+		),
+		false,
+	);
+});
+
 test("maps tool-capable text-generation models and preserves curated metadata", () => {
 	const models = mapCloudflareCatalog(
 		[
@@ -207,9 +253,18 @@ test("restores only this provider's cached models and applies freshness TTL", ()
 		provider: "cloudflare-workers-ai",
 	};
 	const foreign = { ...MODELS[1], provider: "other" };
+	const restored = restoreStoredCatalog([cached, foreign], MODELS);
+	// The foreign entry is not restored from the store (its id only re-enters
+	// once, via the bundled fallback merge), and every bundled model missing
+	// from the store — including PhoneLLM, which pi's built-in-owned store
+	// does not know about yet — is merged back in.
 	assert.deepEqual(
-		restoreStoredCatalog([cached, foreign], MODELS).map((model) => model.id),
-		[cached.id, "moonshotai/kimi-k3"],
+		restored.map((model) => model.id).sort(),
+		MODELS.map((model) => model.id).sort(),
+	);
+	assert.equal(
+		restored.some((model) => model.id === "@cf/daily-co/phonellm-mini-alpha-2"),
+		true,
 	);
 	assert.equal(isCatalogFresh(1_000, 1_000 + CATALOG_MAX_AGE_MS - 1), true);
 	assert.equal(isCatalogFresh(1_000, 1_000 + CATALOG_MAX_AGE_MS), false);
